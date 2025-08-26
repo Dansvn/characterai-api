@@ -38,38 +38,46 @@ def get_full_text(element):
         return e.innerText || e.textContent || "";
     """, element).strip()
 
-def send_message(message_text):
+def send_message(message_text, timeout=30):
     print(f"[SENDING] {message_text}")
     textarea = driver.find_element(By.TAG_NAME, 'textarea')
     textarea.send_keys(message_text)
     textarea.send_keys(Keys.ENTER)
 
+    start_time = time.time()
     while True:
-        time.sleep(0.5)
+        if time.time() - start_time > timeout:
+            print("[WARNING] Timeout esperando resposta.")
+            return ""
+
         slides = driver.find_elements(By.CSS_SELECTOR, '.swiper-slide-visible, .swiper-slide-active')
         for slide in slides[::-1]:
             try:
                 message_element = slide.find_element(By.CSS_SELECTOR, '[data-testid="completed-message"]')
                 previous_text = ""
                 stable_counter = 0
-
+                full_text = ""
                 while True:
-                    current_text = get_full_text(message_element)
+                    current_text = message_element.text.strip()
                     if current_text == previous_text and current_text != "":
                         stable_counter += 0.3
                         if stable_counter >= 1.0:
+                            full_text = current_text
                             break
                     else:
                         stable_counter = 0
                         previous_text = current_text
                     time.sleep(0.3)
 
-                if current_text not in read_messages:
-                    read_messages.append(current_text)
-                    print(f"[RECEIVED] {current_text}")
-                    return current_text
+                if full_text not in read_messages:
+                    read_messages.append(full_text)
+                    print(f"[RECEIVED] {full_text}")
+                    return full_text
             except:
                 continue
+
+        time.sleep(0.5)
+
 
 @app.route("/message", methods=["POST"])
 def respond():
